@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  qr-scanner-engine:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: qr_scanner_service
+    restart: always
+    env_file:
+      - .env
+    devices:
+      # Pass through physical USB serial device to container
+      - "${HOST_SERIAL_PORT:-/dev/ttyACM0}:${SERIAL_PORT:-/dev/ttyACM0}"
+    volumes:
+      # Mount certificates directory as read-only (:ro)
+      - ${HOST_CERTS_DIR:-./certs}:${AWS_CERT_DIR:-/app/certs}:ro

@@ -1,0 +1,5 @@
+certs
+.pytest_cache
+.env
+**pycache__/
+*.egg-info
