@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  qr-scanner-simulator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: qr_scanner_simulator
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8000}:8000"
+    env_file:
+      - .env
+    environment:
+      - AWS_SECRET_NAME=${AWS_SECRET_NAME:-crossbox-gym/iot/certs}
+      - AWS_REGION=${AWS_REGION:-eu-central-1}
+      - AWS_IOT_ENDPOINT=${AWS_IOT_ENDPOINT}
+      - AWS_IOT_CLIENT_ID=${AWS_IOT_CLIENT_ID:-crossbox-qr-scanner-sim-01}
+      - AWS_IOT_TOPIC=${AWS_IOT_TOPIC:-gym/scanners/crossbox-qr-scanner-01/scan}
+      - AWS_CERT_DIR=${AWS_CERT_DIR:-/app/certs}
+      - AWS_CERT_FILE=${AWS_CERT_FILE:-device.pem.crt}
+      - AWS_KEY_FILE=${AWS_KEY_FILE:-private.pem.key}
+      - AWS_ROOT_CA_FILE=${AWS_ROOT_CA_FILE:-AmazonRootCA1.pem}
+    volumes:
+      # Mount certificates directory as read-only (:ro)
+      - ${HOST_CERTS_DIR:-./certs}:${AWS_CERT_DIR:-/app/certs}:ro

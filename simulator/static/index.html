@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AWS IoT QR Scanner Simulator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="logo-group">
+                <div class="logo-icon">📡</div>
+                <div>
+                    <h1>AWS IoT QR Scanner Simulator</h1>
+                    <p class="subtitle">Hardware & mTLS MQTT Interface Simulator for End-to-End Testing</p>
+                </div>
+            </div>
+            <div class="status-pills">
+                <span id="aws-status-pill" class="pill pill-warning">Connecting...</span>
+                <span id="topic-pill" class="pill pill-info">Topic: --</span>
+            </div>
+        </header>
+
+        <!-- System Info Banner -->
+        <section class="info-banner">
+            <div class="info-item">
+                <span class="info-label">AWS IoT Endpoint:</span>
+                <span id="info-endpoint" class="info-value">--</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Client ID:</span>
+                <span id="info-clientid" class="info-value">--</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Secret Name:</span>
+                <span id="info-secret" class="info-value">--</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Total Scans:</span>
+                <span id="info-totalscans" class="info-value">0</span>
+            </div>
+        </section>
+
+        <!-- Main Content Grid -->
+        <main class="grid-container">
+            <!-- Left Column: Controls -->
+            <div class="controls-column">
+                <!-- Manual Scan Trigger Card -->
+                <div class="card glass-card">
+                    <div class="card-header">
+                        <h2>⚡ Manual Scan Trigger</h2>
+                        <span class="badge">API: POST /api/v1/scan</span>
+                    </div>
+
+                    <div class="preset-section">
+                        <label class="section-label">Quick Presets:</label>
+                        <div class="preset-buttons">
+                            <button class="btn btn-preset" onclick="usePreset('https://crossboxgym.pl/checkin/member/12345')">Member #12345</button>
+                            <button class="btn btn-preset" onclick="usePreset('https://crossboxgym.pl/checkin/member/67890')">Member #67890</button>
+                            <button class="btn btn-preset" onclick="usePreset('CROSSBOX-PASS-9988776655')">CrossBox Pass</button>
+                            <button class="btn btn-preset" onclick="usePreset('{\&quot;user_id\&quot;: 99, \&quot;ticket_code\&quot;: \&quot;GYM-2026-XYZ\&quot;}')">Ticket JSON</button>
+                        </div>
+                    </div>
+
+                    <form id="scan-form" onsubmit="handleManualScan(event)">
+                        <div class="form-group">
+                            <label for="qr-data-input">QR Code Content / Payload String:</label>
+                            <input type="text" id="qr-data-input" placeholder="Scan payload e.g. https://crossboxgym.pl/pass/123" required />
+                        </div>
+                        <button type="submit" id="btn-trigger" class="btn btn-primary">
+                            <span>📷 Trigger QR Scan Event</span>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Auto Generator Card -->
+                <div class="card glass-card">
+                    <div class="card-header">
+                        <h2>🔄 Automatic QR Generator</h2>
+                        <span class="badge">Background Loop</span>
+                    </div>
+                    <p class="card-desc">Simulates continuous barcode scanning activity at regular intervals.</p>
+                    
+                    <div class="auto-scan-controls">
+                        <div class="slider-group">
+                            <label for="interval-slider">Interval: <span id="interval-val">3.0</span> seconds</label>
+                            <input type="range" id="interval-slider" min="0.5" max="10.0" step="0.5" value="3.0" oninput="updateIntervalLabel(this.value)">
+                        </div>
+                        <div class="toggle-group">
+                            <button id="btn-toggle-auto" class="btn btn-secondary" onclick="toggleAutoScan()">
+                                ▶ Start Auto-Scan Simulation
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Live Logs -->
+            <div class="logs-column">
+                <div class="card glass-card logs-card">
+                    <div class="card-header">
+                        <h2>📋 Published Events Log</h2>
+                        <button class="btn btn-sm btn-subtle" onclick="refreshHistory()">🔄 Refresh</button>
+                    </div>
+
+                    <div id="events-list" class="events-list">
+                        <div class="empty-state">
+                            <div class="empty-icon">📥</div>
+                            <p>No QR scans published yet.</p>
+                            <p class="subtext">Use the controls on the left to trigger a simulated scan.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

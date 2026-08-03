@@ -21,8 +21,8 @@ class Settings(BaseSettings):
 
     # AWS IoT Core Settings
     AWS_IOT_ENDPOINT: str = Field(..., description="AWS IoT Core Endpoint ATS URL")
-    AWS_IOT_CLIENT_ID: str = Field(default="rpi-qr-scanner-01", description="MQTT Client ID")
-    AWS_IOT_TOPIC: str = Field(default="scanners/qr/data", description="MQTT Topic for publishing QR scans")
+    AWS_IOT_CLIENT_ID: str = Field(default="crossbox-qr-scanner-01", description="MQTT Client ID")
+    AWS_IOT_TOPIC: str = Field(default="gym/scanners/crossbox-qr-scanner-01/scan", description="MQTT Topic for publishing QR scans")
 
     # Certificate Settings
     AWS_CERT_DIR: str = Field(default="/app/certs", description="Directory path containing mTLS certs")
@@ -33,10 +33,9 @@ class Settings(BaseSettings):
     # System & Logging
     LOG_LEVEL: str = Field(default="INFO", description="Log level: DEBUG, INFO, WARN, ERROR")
 
-    # Mock & Testing flags
-    MOCK_SERIAL: bool = Field(default=False, description="Enable simulated serial QR scanner")
+    # Serial Mock flag (for testing serial port without physical hardware)
+    MOCK_SERIAL: bool = Field(default=False, description="Enable simulated serial QR scanner stream")
     MOCK_SERIAL_INTERVAL: float = Field(default=3.0, description="Interval in seconds for mock QR code emission")
-    MOCK_AWS: bool = Field(default=False, description="Enable mock AWS IoT publisher for offline testing")
 
     @property
     def cert_path(self) -> Path:

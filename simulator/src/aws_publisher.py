@@ -5,9 +5,9 @@ import time
 import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-from src.config import Settings
+from src.config import SimulatorSettings
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("SimulatorAWSPublisher")
 
 try:
     from awscrt import io, mqtt
@@ -43,21 +43,21 @@ class BaseIoTPublisher(abc.ABC):
         pass
 
 
-class AWSIoTPublisher(BaseIoTPublisher):
-    """Production mTLS connection implementation for AWS IoT Core."""
+class SimulatorAWSPublisher(BaseIoTPublisher):
+    """Handles mTLS MQTT connection to AWS IoT Core for the simulated hardware device."""
 
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: SimulatorSettings):
         self.settings = settings
         self._mqtt_connection: Optional[Any] = None
         self._is_connected = False
-        self.published_messages_history: List[Dict[str, Any]] = []
+        self.published_history: List[Dict[str, Any]] = []
 
     @property
     def is_connected(self) -> bool:
         return self._is_connected
 
     def build_payload(self, raw_data: str) -> Dict[str, Any]:
-        """Formats the payload according to PRD schema."""
+        """Formats QR scan payload matching the production edge scanner schema."""
         return {
             "event_id": str(uuid.uuid4()),
             "client_id": self.settings.AWS_IOT_CLIENT_ID,
@@ -69,9 +69,9 @@ class AWSIoTPublisher(BaseIoTPublisher):
         }
 
     async def connect(self) -> bool:
-        """Establishes mTLS MQTT connection to AWS IoT Core."""
+        """Establishes mTLS MQTT connection to AWS IoT Core endpoint."""
         if not AWS_SDK_AVAILABLE:
-            logger.error("awsiotsdk package is not installed. Cannot establish AWS IoT connection.")
+            logger.error("awsiotsdk package is missing. Cannot establish real AWS connection.")
             self._is_connected = False
             return False
 
@@ -81,14 +81,17 @@ class AWSIoTPublisher(BaseIoTPublisher):
 
         if not (cert_p.exists() and key_p.exists() and ca_p.exists()):
             logger.error(
-                "Certificate files missing! Checked: cert='%s', key='%s', ca='%s'. Connection aborted.",
+                "Certificates missing at: cert='%s', key='%s', ca='%s'. Cannot connect to AWS IoT Core.",
                 cert_p, key_p, ca_p
             )
             self._is_connected = False
             return False
 
         try:
-            logger.info("Initializing AWS IoT connection to '%s' (client_id='%s')...", self.settings.AWS_IOT_ENDPOINT, self.settings.AWS_IOT_CLIENT_ID)
+            logger.info(
+                "Connecting to AWS IoT Core endpoint '%s' with client_id '%s'...",
+                self.settings.AWS_IOT_ENDPOINT, self.settings.AWS_IOT_CLIENT_ID
+            )
             event_loop_group = io.EventLoopGroup(1)
             host_resolver = io.DefaultHostResolver(event_loop_group)
             client_bootstrap = io.ClientBootstrap(event_loop_group, host_resolver)
@@ -107,16 +110,16 @@ class AWSIoTPublisher(BaseIoTPublisher):
             connect_future = self._mqtt_connection.connect()
             connect_future.result(timeout=10.0)
             self._is_connected = True
-            logger.info("Successfully connected to AWS IoT Core.")
+            logger.info("Successfully connected to AWS IoT Core via mTLS.")
             return True
 
         except Exception as exc:
-            logger.error("Failed to connect to AWS IoT Core: %s", exc)
+            logger.error("Failed to establish AWS IoT Core mTLS connection: %s", exc)
             self._is_connected = False
             return False
 
     async def disconnect(self) -> None:
-        """Disconnects from AWS IoT Core."""
+        """Gracefully disconnects MQTT client from AWS IoT Core."""
         logger.info("Disconnecting AWS IoT Publisher...")
         if self._mqtt_connection and self._is_connected:
             try:
@@ -128,12 +131,12 @@ class AWSIoTPublisher(BaseIoTPublisher):
         logger.info("AWS IoT Publisher disconnected.")
 
     async def publish_scan(self, raw_data: str) -> Optional[Dict[str, Any]]:
-        """Builds payload and publishes scan event to configured MQTT topic."""
+        """Publishes QR code scan event to AWS IoT Core topic."""
         payload_dict = self.build_payload(raw_data)
         json_payload = json.dumps(payload_dict)
 
         if not self._is_connected or not self._mqtt_connection:
-            logger.error("Cannot publish: Not connected to AWS IoT Core. Attempting reconnect...")
+            logger.warning("Not connected to AWS IoT Core. Attempting reconnection...")
             connected = await self.connect()
             if not connected:
                 return None
@@ -146,8 +149,10 @@ class AWSIoTPublisher(BaseIoTPublisher):
                 qos=mqtt.QoS.AT_LEAST_ONCE
             )
             publish_future.result(timeout=5.0)
-            logger.info("Successfully published event ID '%s' to AWS IoT.", payload_dict["event_id"])
-            self.published_messages_history.append(payload_dict)
+            logger.info("Successfully published event ID '%s' to AWS IoT Topic '%s'.", payload_dict["event_id"], self.settings.AWS_IOT_TOPIC)
+            self.published_history.insert(0, payload_dict)
+            if len(self.published_history) > 100:
+                self.published_history.pop()
             return payload_dict
         except Exception as exc:
             logger.error("Failed to publish message to AWS IoT: %s", exc)
@@ -156,17 +161,21 @@ class AWSIoTPublisher(BaseIoTPublisher):
 
 
 class StubIoTPublisher(BaseIoTPublisher):
-    """Stub IoT Publisher implementation for unit and integration testing without network calls."""
+    """Stub IoT Publisher implementation for unit and API testing without network calls."""
 
     def __init__(self, client_id: str = "test-client-id", topic: str = "gym/scanners/test/scan"):
         self.client_id = client_id
         self.topic = topic
         self._connected = True
-        self.published_messages_history: List[Dict[str, Any]] = []
+        self.published_history: List[Dict[str, Any]] = []
 
     @property
     def is_connected(self) -> bool:
         return self._connected
+
+    @property
+    def published_messages_history(self) -> List[Dict[str, Any]]:
+        return self.published_history
 
     async def connect(self) -> bool:
         self._connected = True
@@ -187,5 +196,5 @@ class StubIoTPublisher(BaseIoTPublisher):
                 "encoding": "utf-8"
             }
         }
-        self.published_messages_history.append(payload)
+        self.published_history.insert(0, payload)
         return payload

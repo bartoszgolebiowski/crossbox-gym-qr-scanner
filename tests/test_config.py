@@ -15,8 +15,8 @@ def test_default_settings(monkeypatch):
     assert settings.SERIAL_PORT == "/dev/ttyACM0"
     assert settings.SERIAL_BAUDRATE == 9600
     assert settings.AWS_IOT_ENDPOINT == "test-ats.iot.eu-central-1.amazonaws.com"
-    assert settings.AWS_IOT_CLIENT_ID == "rpi-qr-scanner-01"
-    assert settings.AWS_IOT_TOPIC == "scanners/qr/data"
+    assert settings.AWS_IOT_CLIENT_ID == "crossbox-qr-scanner-01"
+    assert settings.AWS_IOT_TOPIC == "gym/scanners/crossbox-qr-scanner-01/scan"
     assert settings.LOG_LEVEL == "INFO"
 
 
@@ -26,7 +26,7 @@ def test_custom_environment_overrides(monkeypatch):
     monkeypatch.setenv("SERIAL_BAUDRATE", "115200")
     monkeypatch.setenv("AWS_IOT_ENDPOINT", "custom-endpoint.iot.aws.com")
     monkeypatch.setenv("AWS_IOT_CLIENT_ID", "custom-scanner-id")
-    monkeypatch.setenv("AWS_IOT_TOPIC", "custom/topic/qr")
+    monkeypatch.setenv("AWS_IOT_TOPIC", "gym/scanners/custom-scanner-id/scan")
     monkeypatch.setenv("AWS_CERT_DIR", "/custom/certs")
     monkeypatch.setenv("MOCK_SERIAL", "true")
 
@@ -35,7 +35,7 @@ def test_custom_environment_overrides(monkeypatch):
     assert settings.SERIAL_BAUDRATE == 115200
     assert settings.AWS_IOT_ENDPOINT == "custom-endpoint.iot.aws.com"
     assert settings.AWS_IOT_CLIENT_ID == "custom-scanner-id"
-    assert settings.AWS_IOT_TOPIC == "custom/topic/qr"
+    assert settings.AWS_IOT_TOPIC == "gym/scanners/custom-scanner-id/scan"
     assert settings.cert_path == Path("/custom/certs/device.pem.crt")
     assert settings.key_path == Path("/custom/certs/private.pem.key")
     assert settings.root_ca_path == Path("/custom/certs/AmazonRootCA1.pem")

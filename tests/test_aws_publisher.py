@@ -1,6 +1,6 @@
 import uuid
 import pytest
-from src.aws_publisher import AWSIoTPublisher
+from src.aws_publisher import AWSIoTPublisher, StubIoTPublisher
 from src.config import Settings
 
 
@@ -8,8 +8,7 @@ def test_build_payload_schema():
     """Verifies that build_payload generates a payload matching the PRD spec."""
     settings = Settings(
         AWS_IOT_ENDPOINT="test.iot.amazonaws.com",
-        AWS_IOT_CLIENT_ID="rpi-test-client-01",
-        MOCK_AWS=True
+        AWS_IOT_CLIENT_ID="crossbox-test-client-01"
     )
     publisher = AWSIoTPublisher(settings)
 
@@ -24,23 +23,19 @@ def test_build_payload_schema():
 
     # Validate types and values
     assert uuid.UUID(payload["event_id"])  # must be valid UUID4
-    assert payload["client_id"] == "rpi-test-client-01"
+    assert payload["client_id"] == "crossbox-test-client-01"
     assert isinstance(payload["timestamp"], int)
     assert payload["payload"]["raw_data"] == raw_qr
     assert payload["payload"]["encoding"] == "utf-8"
 
 
 @pytest.mark.asyncio
-async def test_mock_aws_publisher():
-    """Verifies that publishing in mock mode records messages in history."""
-    settings = Settings(
-        AWS_IOT_ENDPOINT="test.iot.amazonaws.com",
-        AWS_IOT_TOPIC="scanners/qr/test",
-        MOCK_AWS=True
-    )
-    publisher = AWSIoTPublisher(settings)
+async def test_stub_iot_publisher():
+    """Verifies that publishing via StubIoTPublisher records messages in history."""
+    publisher = StubIoTPublisher(client_id="stub-client", topic="gym/scanners/stub/scan")
     connected = await publisher.connect()
     assert connected is True
+    assert publisher.is_connected is True
 
     result = await publisher.publish_scan("TEST_QR_CODE_CONTENT")
     assert result is not None
@@ -48,3 +43,4 @@ async def test_mock_aws_publisher():
     assert len(publisher.published_messages_history) == 1
 
     await publisher.disconnect()
+    assert publisher.is_connected is False

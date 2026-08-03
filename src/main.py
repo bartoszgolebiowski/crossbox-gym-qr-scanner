@@ -4,7 +4,7 @@ import signal
 import sys
 from typing import Optional
 
-from src.aws_publisher import AWSIoTPublisher
+from src.aws_publisher import AWSIoTPublisher, BaseIoTPublisher
 from src.config import Settings, get_settings
 from src.serial_listener import SerialScannerListener
 
@@ -14,10 +14,14 @@ logger = logging.getLogger("EngineMain")
 class QRScannerEngine:
     """Orchestrates serial port listener, queue worker, and AWS IoT publisher."""
 
-    def __init__(self, settings: Optional[Settings] = None):
+    def __init__(
+        self,
+        settings: Optional[Settings] = None,
+        publisher: Optional[BaseIoTPublisher] = None,
+    ):
         self.settings = settings or get_settings()
         self._setup_logging()
-        self.publisher = AWSIoTPublisher(self.settings)
+        self.publisher = publisher or AWSIoTPublisher(self.settings)
         self.scan_queue: asyncio.Queue[str] = asyncio.Queue()
         self.listener = SerialScannerListener(
             port=self.settings.SERIAL_PORT,

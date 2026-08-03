@@ -1,0 +1,22 @@
+[project]
+name = "crossbox-gym-qr-simulator"
+version = "1.0.0"
+description = "AWS IoT Edge QR Scanner Hardware Simulator & API Server"
+authors = [{ name = "Transition Technologies PSC" }]
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.28.0",
+    "pydantic>=2.6.0",
+    "pydantic-settings>=2.2.0",
+    "awsiotsdk>=1.21.0",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = "test_*.py"
