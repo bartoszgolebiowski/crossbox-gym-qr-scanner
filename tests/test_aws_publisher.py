@@ -44,3 +44,17 @@ async def test_stub_iot_publisher():
 
     await publisher.disconnect()
     assert publisher.is_connected is False
+
+
+@pytest.mark.asyncio
+async def test_stub_publisher_records_generic_publish():
+    """Verifies that generic publish via StubIoTPublisher records messages in history."""
+    publisher = StubIoTPublisher(client_id="stub-client", topic="gym/scanners/stub/scan")
+    await publisher.connect()
+
+    result = await publisher.publish("gym/devices/test/heartbeat", {"status": "online"})
+    assert result is not None
+    assert publisher.published_messages_history[-1]["topic"] == "gym/devices/test/heartbeat"
+    assert publisher.published_messages_history[-1]["status"] == "online"
+
+    await publisher.disconnect()

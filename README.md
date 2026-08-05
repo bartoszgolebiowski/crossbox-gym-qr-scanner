@@ -12,6 +12,7 @@ Kontenerowalna usługa w języku Python przeznaczona na urządzenia brzegowe (Ra
 - **Manual Scan Trigger Script**: Skrypt Python `scripts/trigger_scan.py` do ręcznego wysyłania zdarzeń skanowania QR.
 - **Hardware Simulator Service**: Dedykowany podprojekt w katalogu `./simulator` pozwalający na testy E2E bez fizycznego skanera.
 - **Auto-Reconnect & Resilience**: Automatyczna obsługa rozłączenia kabla USB skanera oraz odzyskiwanie połączenia MQTT z brokerem AWS IoT Core.
+- **Device Heartbeat**: Co 10 sekund publikowana jest wiadomość `heartbeat` na temat `gym/devices/{client_id}/heartbeat`, umożliwiająca backendowi wykrycie, gdy skaner jest offline.
 - **Docker Ready**: Zoptymalizowany obraz Docker (`python:3.11-slim`) z `docker-compose.yml`.
 
 ---
@@ -78,6 +79,8 @@ python scripts/fetch_certs.py -s "crossbox-gym/iot/certs"
 | `AWS_IOT_ENDPOINT` | `String` | **Wymagane** | Adres wywołania brokera AWS IoT (ATS Endpoint). |
 | `AWS_IOT_CLIENT_ID` | `String` | `crossbox-qr-scanner-01` | Identyfikator klienta MQTT. |
 | `AWS_IOT_TOPIC` | `String` | `gym/scanners/crossbox-qr-scanner-01/scan` | Temat MQTT publikacji zdarzeń. |
+| `AWS_IOT_HEARTBEAT_INTERVAL_SECONDS` | `Integer` | `10` | Odstęp czasu (w sekundach) między kolejnymi wiadomościami heartbeat. |
+| `AWS_IOT_HEARTBEAT_TOPIC` | `String` | `gym/devices/crossbox-qr-scanner-01/heartbeat` | Temat MQTT publikacji heartbeat urządzenia. |
 | `AWS_CERT_DIR` | `String` | `/app/certs` | Ścieżka wewnątrz kontenera z certyfikatami. |
 | `AWS_CERT_FILE` | `String` | `device.pem.crt` | Certyfikat urządzenia X.509. |
 | `AWS_KEY_FILE` | `String` | `private.pem.key` | Klucz prywatny urządzenia. |
@@ -95,7 +98,34 @@ python scripts/trigger_scan.py --qr "https://crossboxgym.pl/checkin/member/12345
 
 ---
 
-## 🚀 Uruchomienie (Krok po Kroku)
+## � Heartbeat urządzenia
+
+Silnik skanera publikuje cyklicznie wiadomość heartbeat na temat `gym/devices/{AWS_IOT_CLIENT_ID}/heartbeat` (domyślnie co 10 sekund).
+
+Przykładowy payload:
+
+```json
+{
+  "thingName": "crossbox-qr-scanner-01",
+  "deviceType": "HDWR-HD360-QR-Scanner",
+  "status": "online",
+  "timestamp": "2026-08-05T12:34:56.789Z",
+  "uptime_ms": 3600000,
+  "version": "1.0.0"
+}
+```
+
+Backend może wykorzystać te wiadomości do raportowania statusu urządzenia (`ONLINE`/`OFFLINE`). Polityka AWS IoT musi zezwalać na publikację do tematu `gym/devices/*/heartbeat`:
+
+```json
+{
+  "Effect": "Allow",
+  "Action": ["iot:Publish"],
+  "Resource": ["arn:aws:iot:{region}:{account}:topic/gym/devices/*/heartbeat"]
+}
+```
+
+## �🚀 Uruchomienie (Krok po Kroku)
 
 ### Wariant A: Symulator Sprzętu i REST API (Testy E2E w ./simulator)
 ```bash

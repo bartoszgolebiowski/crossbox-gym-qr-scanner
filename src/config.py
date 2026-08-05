@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     AWS_IOT_ENDPOINT: str = Field(..., description="AWS IoT Core Endpoint ATS URL")
     AWS_IOT_CLIENT_ID: str = Field(default="crossbox-qr-scanner-01", description="MQTT Client ID")
     AWS_IOT_TOPIC: str = Field(default="gym/scanners/crossbox-qr-scanner-01/scan", description="MQTT Topic for publishing QR scans")
+    AWS_IOT_HEARTBEAT_INTERVAL_SECONDS: int = Field(default=10, ge=1, le=300, description="Interval in seconds between heartbeat messages")
+    AWS_IOT_HEARTBEAT_TOPIC: str = Field(default="gym/devices/crossbox-qr-scanner-01/heartbeat", description="MQTT Topic for publishing device heartbeat")
 
     # Certificate Settings
     AWS_CERT_DIR: str = Field(default="/app/certs", description="Directory path containing mTLS certs")

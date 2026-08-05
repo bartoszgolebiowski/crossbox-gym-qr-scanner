@@ -38,6 +38,14 @@ class SimulatorSettings(BaseSettings):
         default="gym/scanners/crossbox-qr-scanner-01/scan",
         description="MQTT Topic for publishing QR scan events"
     )
+    AWS_IOT_HEARTBEAT_INTERVAL_SECONDS: int = Field(
+        default=10, ge=1, le=300,
+        description="Interval in seconds between device heartbeat messages"
+    )
+    AWS_IOT_HEARTBEAT_TOPIC: str = Field(
+        default="gym/devices/crossbox-qr-scanner-01/heartbeat",
+        description="MQTT Topic for publishing device heartbeat"
+    )
 
     # mTLS Certificate File Locations
     AWS_CERT_DIR: str = Field(

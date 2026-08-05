@@ -42,6 +42,16 @@ class BaseIoTPublisher(abc.ABC):
         """Publishes a QR scan event payload."""
         pass
 
+    @abc.abstractmethod
+    async def publish(
+        self,
+        topic: str,
+        payload: Dict[str, Any],
+        qos: mqtt.QoS = mqtt.QoS.AT_LEAST_ONCE,
+    ) -> Optional[Dict[str, Any]]:
+        """Publish a JSON payload to any MQTT topic."""
+        pass
+
 
 class SimulatorAWSPublisher(BaseIoTPublisher):
     """Handles mTLS MQTT connection to AWS IoT Core for the simulated hardware device."""
@@ -159,6 +169,37 @@ class SimulatorAWSPublisher(BaseIoTPublisher):
             self._is_connected = False
             return None
 
+    async def publish(
+        self,
+        topic: str,
+        payload: Dict[str, Any],
+        qos: mqtt.QoS = mqtt.QoS.AT_LEAST_ONCE,
+    ) -> Optional[Dict[str, Any]]:
+        """Publishes a generic JSON payload to the specified MQTT topic."""
+        if not self._is_connected or not self._mqtt_connection:
+            logger.warning("Cannot publish to %s: not connected. Attempting reconnect...", topic)
+            connected = await self.connect()
+            if not connected:
+                return None
+
+        json_payload = json.dumps(payload)
+        try:
+            publish_future, _ = self._mqtt_connection.publish(
+                topic=topic,
+                payload=json_payload,
+                qos=qos,
+            )
+            publish_future.result(timeout=5.0)
+            logger.info("Published to topic '%s'.", topic)
+            self.published_history.insert(0, payload)
+            if len(self.published_history) > 100:
+                self.published_history.pop()
+            return payload
+        except Exception as exc:
+            logger.error("Failed to publish to %s: %s", topic, exc)
+            self._is_connected = False
+            return None
+
 
 class StubIoTPublisher(BaseIoTPublisher):
     """Stub IoT Publisher implementation for unit and API testing without network calls."""
@@ -197,4 +238,18 @@ class StubIoTPublisher(BaseIoTPublisher):
             }
         }
         self.published_history.insert(0, payload)
+        return payload
+
+    async def publish(
+        self,
+        topic: str,
+        payload: Dict[str, Any],
+        qos: Any = None,
+    ) -> Optional[Dict[str, Any]]:
+        """Records a generic published message in history."""
+        if not self._connected:
+            return None
+        self.published_history.insert(0, {"topic": topic, **payload})
+        if len(self.published_history) > 100:
+            self.published_history.pop()
         return payload

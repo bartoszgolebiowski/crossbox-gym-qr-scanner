@@ -1,3 +1,4 @@
+import asyncio
 import pytest
 from httpx import AsyncClient, ASGITransport
 from src.api import create_app
@@ -59,6 +60,44 @@ async def test_trigger_scan_endpoint(app, test_engine):
         assert len(history) == 1
         assert history[0]["payload"]["raw_data"] == "https://crossboxgym.pl/checkin/member/9999"
     await test_engine.stop()
+
+
+@pytest.fixture
+def heartbeat_test_engine():
+    settings = SimulatorSettings(
+        AWS_IOT_ENDPOINT="mock-ats.iot.eu-central-1.amazonaws.com",
+        AWS_IOT_CLIENT_ID="sim-heartbeat-test-01",
+        AWS_IOT_TOPIC="gym/scanners/crossbox-qr-scanner-01/scan",
+        AWS_IOT_HEARTBEAT_INTERVAL_SECONDS=1,
+        AWS_IOT_HEARTBEAT_TOPIC="gym/devices/sim-heartbeat-test-01/heartbeat",
+        AWS_SECRET_NAME="crossbox-gym/iot/certs"
+    )
+    stub_pub = StubIoTPublisher(
+        client_id=settings.AWS_IOT_CLIENT_ID,
+        topic=settings.AWS_IOT_TOPIC
+    )
+    return SimulatorEngine(settings=settings, publisher=stub_pub)
+
+
+@pytest.mark.asyncio
+async def test_simulator_publishes_heartbeat(heartbeat_test_engine):
+    engine = heartbeat_test_engine
+    await engine.start()
+    await asyncio.sleep(1.5)
+    history = engine.publisher.published_history
+    heartbeat_messages = [
+        msg for msg in history
+        if msg.get("topic") == engine.settings.AWS_IOT_HEARTBEAT_TOPIC
+    ]
+    assert len(heartbeat_messages) >= 1
+    heartbeat = heartbeat_messages[0]
+    assert heartbeat["thingName"] == engine.settings.AWS_IOT_CLIENT_ID
+    assert heartbeat["deviceType"] == "HDWR-HD360-QR-Scanner"
+    assert heartbeat["status"] == "online"
+    assert "timestamp" in heartbeat
+    assert "uptime_ms" in heartbeat
+    assert heartbeat["version"] == "1.0.0"
+    await engine.stop()
 
 
 @pytest.mark.asyncio

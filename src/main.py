@@ -1,7 +1,9 @@
 import asyncio
+import datetime
 import logging
 import signal
 import sys
+import time
 from typing import Optional
 
 from src.aws_publisher import AWSIoTPublisher, BaseIoTPublisher
@@ -32,6 +34,8 @@ class QRScannerEngine:
         )
         self._running = False
         self._worker_task: Optional[asyncio.Task] = None
+        self._heartbeat_task: Optional[asyncio.Task] = None
+        self._start_time = time.monotonic()
 
     def _setup_logging(self) -> None:
         """Configures root logger level and format."""
@@ -68,6 +72,30 @@ class QRScannerEngine:
             except Exception as exc:
                 logger.error("Error in queue worker: %s", exc)
 
+    async def _heartbeat_loop(self) -> None:
+        """Periodically publishes a device heartbeat while the engine is running."""
+        while self._running:
+            try:
+                await self._send_heartbeat()
+                await asyncio.sleep(self.settings.AWS_IOT_HEARTBEAT_INTERVAL_SECONDS)
+            except asyncio.CancelledError:
+                break
+            except Exception as exc:
+                logger.exception("Heartbeat error: %s", exc)
+                await asyncio.sleep(1)
+
+    async def _send_heartbeat(self) -> None:
+        """Builds and publishes the device heartbeat payload."""
+        payload = {
+            "thingName": self.settings.AWS_IOT_CLIENT_ID,
+            "deviceType": "HDWR-HD360-QR-Scanner",
+            "status": "online",
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "uptime_ms": int((time.monotonic() - self._start_time) * 1000),
+            "version": "1.0.0",
+        }
+        await self.publisher.publish(self.settings.AWS_IOT_HEARTBEAT_TOPIC, payload)
+
     async def start(self) -> None:
         """Starts the engine, AWS connection, serial listener, and queue worker."""
         logger.info("Starting QRScannerEngine...")
@@ -78,6 +106,9 @@ class QRScannerEngine:
 
         # Start Queue Worker
         self._worker_task = asyncio.create_task(self._queue_worker())
+
+        # Start Heartbeat Publisher
+        self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
 
         # Start Serial Listener
         await self.listener.start()
@@ -91,13 +122,14 @@ class QRScannerEngine:
         # Stop serial listener
         await self.listener.stop()
 
-        # Stop worker task
-        if self._worker_task and not self._worker_task.done():
-            self._worker_task.cancel()
-            try:
-                await self._worker_task
-            except asyncio.CancelledError:
-                pass
+        # Stop background tasks
+        for task in (self._worker_task, self._heartbeat_task):
+            if task and not task.done():
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
 
         # Disconnect AWS IoT publisher
         await self.publisher.disconnect()
