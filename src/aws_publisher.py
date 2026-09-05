@@ -86,6 +86,11 @@ class AWSIoTPublisher(BaseIoTPublisher):
             return False
 
         cert_p = self.settings.cert_path
+        if not cert_p.exists():
+            alt_cert = cert_p.parent / ("certificate.pem.crt" if cert_p.name == "device.pem.crt" else "device.pem.crt")
+            if alt_cert.exists():
+                cert_p = alt_cert
+
         key_p = self.settings.key_path
         ca_p = self.settings.root_ca_path
 

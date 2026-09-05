@@ -25,12 +25,14 @@ crossbox-gym-qr-scanner/
 │   ├── AmazonRootCA1.pem
 │   ├── device.pem.crt
 │   └── private.pem.key
-├── docs/                       # Dokumentacja PRD i planu wdrożeniowego
+├── docs/                       # Dokumentacja projektu
+│   ├── installation_guide.md  # Pełny przewodnik wdrożeniowy na Raspberry Pi
 │   ├── prd.md
 │   └── implementation_plan.md
 ├── scripts/                    # Skrypty pomocnicze
 │   ├── fetch_certs.py         # Pobieranie certyfikatów z AWS Secrets Manager
 │   └── trigger_scan.py        # Ręczne wyzwalanie skanów QR
+├── run_scanner.py              # Główny instalator i runner usługi na Raspberry Pi (Python)
 ├── simulator/                  # Dedykowany symulator sprzętowy + REST API UI (testy E2E)
 │   ├── certs/
 │   ├── src/
@@ -136,11 +138,35 @@ Dostęp do interfejsu REST i Web UI pod adresem: `http://localhost:8000`
 
 ---
 
-### Wariant B: Produkcyjne na Raspberry Pi (Docker Compose)
-```bash
-# 1. Pobierz certyfikaty z AWS Secrets Manager:
-python scripts/fetch_certs.py -s "crossbox-gym/iot/certs"
+### Wariant B: Produkcyjne na Raspberry Pi (Dedykowany Skrypt Python)
 
-# 2. Uruchom kontener za pomocą Docker Compose:
-docker compose up -d --build
+Najprostszym i zalecanym sposobem uruchomienia na Raspberry Pi jest użycie dedykowanego skryptu Python [run_scanner.py](file:///run_scanner.py), który w pełni automatyzuje proces:
+1. Sprawdza środowisko Docker i obecność portu szeregowego USB (`/dev/ttyACM*` / `/dev/ttyUSB*`).
+2. Pobiera certyfikaty mTLS urządzenia `crossbox-qr-scanner-01` z AWS Secrets Manager (`crossbox-gym/iot/certs`) oraz endpoint z AWS SSM (`/crossbox/iot/endpoint`).
+3. Zapisuje certyfikaty w katalogu `./certs` oraz aktualizuje plik `.env` z adresem ATS endpointu i identyfikatorem klienta.
+4. Buduje obraz Docker i uruchamia kontener w tle za pomocą Docker Compose.
+5. Sprawdza logi i weryfikuje poprawne nawiązanie połączenia mTLS z AWS IoT Core.
+
+```bash
+# Uruchomienie skryptu (pobiera certyfikaty, konfiguruje .env i startuje kontener Docker):
+python3 run_scanner.py
 ```
+
+Opcjonalne flagi:
+- `--mock` – uruchamia skaner w trybie symulacji (przydatne do testów bez fizycznego urządzenia USB).
+- `--no-logs` – uruchamia kontener w tle bez śledzenia logów w konsoli.
+- `--no-build` – uruchamia kontener bez ponownego budowania obrazu.
+- `-p /dev/ttyUSB0` – ręczne wskazanie portu szeregowego skanera.
+
+---
+
+### 🛠️ Przydatne komendy po uruchomieniu
+
+| Zadanie | Komenda |
+| :--- | :--- |
+| **Podgląd logów na żywo** | `docker compose logs -f` |
+| **Restart usługi** | `docker compose restart` |
+| **Zatrzymanie kontenera** | `docker compose down` |
+| **Ręczny test skanu QR** | `python3 scripts/trigger_scan.py --qr "MEMBER-12345"` |
+
+
